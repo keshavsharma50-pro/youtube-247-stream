@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>24/7 Stream Panel</title>
+    <style>
+        body { background-color: #111827; color: white; font-family: sans-serif; padding: 20px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #374151; background: #1F2937; color: white; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-top: 15px; cursor: pointer; }
+        #startBtn { background-color: #EF4444; color: white; }
+        #stopBtn { background-color: #4B5563; color: white; display: none; }
+        .hidden { display: none; }
+        #status { margin-top: 20px; padding: 15px; background: #059669; border-radius: 8px; text-align: center; }
+    </style>
+</head>
+<body>
+    <h2>Live Control Panel</h2>
+    <form id="streamForm">
+        <label>Dropbox Video Link (?dl=1)</label>
+        <input type="text" id="video_url" required placeholder="https://www.dropbox.com/s/...">
+        
+        <label>YouTube Stream Key</label>
+        <input type="password" id="stream_key" required placeholder="xxxx-xxxx-xxxx-xxxx">
+        
+        <button type="submit" id="startBtn">START STREAM</button>
+        <button type="button" id="stopBtn">STOP STREAM</button>
+    </form>
+    <div id="status" class="hidden">Starting server... please wait.</div>
+
+    <script>
+        document.getElementById('streamForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const status = document.getElementById('status');
+            
+            startBtn.innerText = 'DOWNLOADING VIDEO...';
+            startBtn.style.backgroundColor = '#F59E0B';
+            
+            const formData = new FormData();
+            formData.append('video_url', document.getElementById('video_url').value);
+            formData.append('stream_key', document.getElementById('stream_key').value);
+
+            const response = await fetch('/start', { method: 'POST', body: formData });
+            const data = await response.json();
+            
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'block';
+            status.classList.remove('hidden');
+            status.style.backgroundColor = '#059669';
+            status.innerText = 'ACTUALLY LIVE: ' + data.message;
+        });
+
+        document.getElementById('stopBtn').addEventListener('click', async () => {
+            const response = await fetch('/stop', { method: 'POST' });
+            const data = await response.json();
+            
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('startBtn').innerText = 'START STREAM';
+            document.getElementById('startBtn').style.backgroundColor = '#EF4444';
+            
+            const status = document.getElementById('status');
+            status.style.backgroundColor = '#4B5563';
+            status.innerText = 'STREAM STOPPED';
+        });
+    </script>
+</body>
+</html>
