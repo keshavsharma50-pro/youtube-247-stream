@@ -1,70 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>24/7 Stream Panel</title>
+    <title>24/7 Stream Controller</title>
     <style>
-        body { background-color: #111827; color: white; font-family: sans-serif; padding: 20px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #374151; background: #1F2937; color: white; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; margin-top: 15px; cursor: pointer; }
-        #startBtn { background-color: #EF4444; color: white; }
-        #stopBtn { background-color: #4B5563; color: white; display: none; }
-        .hidden { display: none; }
-        #status { margin-top: 20px; padding: 15px; background: #059669; border-radius: 8px; text-align: center; }
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        .status-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; background: #f0f0f0; }
+        .status-streaming { background: #d4edda; color: #155724; }
+        .status-starting { background: #cce5ff; color: #004085; }
+        .status-downloading { background: #fff3cd; color: #856404; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        input { width: 100%; padding: 8px; margin: 5px 0 15px; box-sizing: border-box; }
+        button { padding: 10px 20px; cursor: pointer; width: 100%; margin-bottom: 10px; }
+        #startBtn { background: #007bff; color: white; border: none; }
+        #stopBtn { background: #dc3545; color: white; border: none; }
+        #startBtn:disabled { background: #a0c4ff; cursor: not-allowed; }
     </style>
 </head>
 <body>
-    <h2>Live Control Panel</h2>
-    <form id="streamForm">
-        <label>Dropbox Video Link (?dl=1)</label>
-        <input type="text" id="video_url" required placeholder="https://www.dropbox.com/s/...">
-        
-        <label>YouTube Stream Key</label>
-        <input type="password" id="stream_key" required placeholder="xxxx-xxxx-xxxx-xxxx">
-        
+    <h1>YouTube 24/7 Control Panel</h1>
+    
+    <div id="statusBox" class="status-box">
+        <strong>Status:</strong> <span id="statusText">Checking...</span><br>
+        <small id="statusMessage"></small>
+    </div>
+
+    <form id="startForm">
+        <label>Dropbox Video Link:</label>
+        <input type="url" id="dropbox_link" required>
+        <label>YouTube Stream Key:</label>
+        <input type="password" id="stream_key" required>
         <button type="submit" id="startBtn">START STREAM</button>
-        <button type="button" id="stopBtn">STOP STREAM</button>
     </form>
-    <div id="status" class="hidden">Starting server... please wait.</div>
+    
+    <button id="stopBtn">STOP STREAM</button>
 
     <script>
-        document.getElementById('streamForm').addEventListener('submit', async (e) => {
+        async function updateStatus() {
+            try {
+                let res = await fetch('/status');
+                if(res.status === 401) { location.reload(); return; }
+                let data = await res.json();
+                
+                let box = document.getElementById('statusBox');
+                document.getElementById('statusText').innerText = data.status.toUpperCase();
+                document.getElementById('statusMessage').innerText = data.message;
+                
+                box.className = 'status-box';
+                if(data.status === 'streaming') box.classList.add('status-streaming');
+                if(data.status === 'starting') box.classList.add('status-starting');
+                if(data.status === 'downloading') box.classList.add('status-downloading');
+                if(data.status === 'error') box.classList.add('status-error');
+                
+                document.getElementById('startBtn').disabled = (data.status === 'downloading' || data.status === 'starting' || data.status === 'streaming');
+            } catch (e) {
+                console.error("Status fetch failed", e);
+            }
+        }
+
+        document.getElementById('startForm').onsubmit = async (e) => {
             e.preventDefault();
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const status = document.getElementById('status');
-            
-            startBtn.innerText = 'DOWNLOADING VIDEO...';
-            startBtn.style.backgroundColor = '#F59E0B';
-            
-            const formData = new FormData();
-            formData.append('video_url', document.getElementById('video_url').value);
+            let formData = new FormData();
+            formData.append('dropbox_link', document.getElementById('dropbox_link').value);
             formData.append('stream_key', document.getElementById('stream_key').value);
+            
+            let res = await fetch('/start', { method: 'POST', body: formData });
+            let data = await res.json();
+            if(!res.ok) {
+                alert(data.error || 'Failed to start stream.');
+            }
+            updateStatus();
+        };
 
-            const response = await fetch('/start', { method: 'POST', body: formData });
-            const data = await response.json();
-            
-            startBtn.style.display = 'none';
-            stopBtn.style.display = 'block';
-            status.classList.remove('hidden');
-            status.style.backgroundColor = '#059669';
-            status.innerText = 'ACTUALLY LIVE: ' + data.message;
-        });
+        document.getElementById('stopBtn').onclick = async () => {
+            if(confirm('Are you sure you want to stop the stream?')) {
+                await fetch('/stop', { method: 'POST' });
+                updateStatus();
+            }
+        };
 
-        document.getElementById('stopBtn').addEventListener('click', async () => {
-            const response = await fetch('/stop', { method: 'POST' });
-            const data = await response.json();
-            
-            document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('startBtn').style.display = 'block';
-            document.getElementById('startBtn').innerText = 'START STREAM';
-            document.getElementById('startBtn').style.backgroundColor = '#EF4444';
-            
-            const status = document.getElementById('status');
-            status.style.backgroundColor = '#4B5563';
-            status.innerText = 'STREAM STOPPED';
-        });
+        setInterval(updateStatus, 3000);
+        updateStatus();
     </script>
 </body>
 </html>
