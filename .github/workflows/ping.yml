@@ -1,0 +1,14 @@
+name: Koyeb Knocker
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Koyeb Server
+        run: curl -s https://YOUR_APP_NAME.koyeb.app/health
+        
